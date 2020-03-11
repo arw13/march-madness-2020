@@ -102,8 +102,6 @@ with torch.no_grad():
     correct = 0
     total   = 0
     loss    = 0
-    # set model to eval mode
-    model.eval()
     for x, y in test_loader:
 
         outputs = model(x)

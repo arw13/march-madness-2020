@@ -18,8 +18,6 @@ df_seeds = pd.read_csv(data_dir + 'MNCAATourneySeeds.csv')
 df_tour = pd.read_csv(data_dir + 'MNCAATourneyCompactResults.csv')
 print(df_tour.head())
 
-
-
 # Incorporate Massey Ordinals - MAS, SAG, POM
 # the Massey ordinal dataset is a compilation of different ranking system. The ones I chose are the most reliable/most comprehensive
 # First I select the end of season ranking and seasons 2008 and later
@@ -31,75 +29,80 @@ df_rank = pd.read_csv(data_dir+'MMasseyOrdinals.csv')
 df_rank = df_rank[df_rank.RankingDayNum>=133]
 df_rank = df_rank[df_rank.Season>=1985]
 print(df_rank.head())
-
+df_rank.to_csv('Sorted_Massey_Ordinals.csv',index=False)
 # Add advanced stats from https://www.kaggle.com/lnatml/feature-engineering-with-advanced-stats/notebook
 # 
 # This uses some equations I found in the above kernel to create some advanced stats. Not sure how useful they are, since in theory a neural network should be able to approximate them as they are all linear relations but it saves some training if so to do this math now. 
 
 
-df = pd.read_csv(data_dir+'MRegularSeasonDetailedResults.csv')
+# this takes a long time, only do if the advanced stats are not present in the folder
+try:
+    df_adv = pd.read_csv('Raw_Adv_Stats.csv')
+except:
+    df = pd.read_csv(data_dir+'MRegularSeasonDetailedResults.csv')
 
-#Points Winning/Losing Team
-df['WPts'] = df.apply(lambda row: 2*(row.WFGM-row.WFGM3) + 3*row.WFGM3 + row.WFTM, axis=1)
-df['LPts'] = df.apply(lambda row: 2*(row.LFGM-row.WFGM3) + 3*row.LFGM3 + row.LFTM, axis=1)
+    #Points Winning/Losing Team
+    df['WPts'] = df.apply(lambda row: 2*(row.WFGM-row.WFGM3) + 3*row.WFGM3 + row.WFTM, axis=1)
+    df['LPts'] = df.apply(lambda row: 2*(row.LFGM-row.WFGM3) + 3*row.LFGM3 + row.LFTM, axis=1)
 
-#Calculate Winning/losing Team Possesion Feature
-wPos = df.apply(lambda row: 0.96*(row.WFGA + row.WTO + 0.44*row.WFTA - row.WOR), axis=1)
-lPos = df.apply(lambda row: 0.96*(row.LFGA + row.LTO + 0.44*row.LFTA - row.LOR), axis=1)
-#two teams use almost the same number of possessions in a game
-#(plus/minus one or two - depending on how quarters end)
-#so let's just take the average
-df['Pos'] = (wPos+lPos)/2
+    #Calculate Winning/losing Team Possesion Feature
+    wPos = df.apply(lambda row: 0.96*(row.WFGA + row.WTO + 0.44*row.WFTA - row.WOR), axis=1)
+    lPos = df.apply(lambda row: 0.96*(row.LFGA + row.LTO + 0.44*row.LFTA - row.LOR), axis=1)
+    #two teams use almost the same number of possessions in a game
+    #(plus/minus one or two - depending on how quarters end)
+    #so let's just take the average
+    df['Pos'] = (wPos+lPos)/2
 
-#Offensive efficiency (OffRtg) = 100 x (Points / Possessions)
-df['WOffRtg'] = df.apply(lambda row: 100 * (row.WPts / row.Pos), axis=1)
-df['LOffRtg'] = df.apply(lambda row: 100 * (row.LPts / row.Pos), axis=1)
-#Defensive efficiency (DefRtg) = 100 x (Opponent points / Opponent possessions)
-df['WDefRtg'] = df.LOffRtg
-df['LDefRtg'] = df.WOffRtg
-#Net Rating = Off.eff - Def.eff
-df['WNetRtg'] = df.apply(lambda row:(row.WOffRtg - row.LDefRtg), axis=1)
-df['LNetRtg'] = df.apply(lambda row:(row.LOffRtg - row.LDefRtg), axis=1)
+    #Offensive efficiency (OffRtg) = 100 x (Points / Possessions)
+    df['WOffRtg'] = df.apply(lambda row: 100 * (row.WPts / row.Pos), axis=1)
+    df['LOffRtg'] = df.apply(lambda row: 100 * (row.LPts / row.Pos), axis=1)
+    #Defensive efficiency (DefRtg) = 100 x (Opponent points / Opponent possessions)
+    df['WDefRtg'] = df.LOffRtg
+    df['LDefRtg'] = df.WOffRtg
+    #Net Rating = Off.eff - Def.eff
+    df['WNetRtg'] = df.apply(lambda row:(row.WOffRtg - row.LDefRtg), axis=1)
+    df['LNetRtg'] = df.apply(lambda row:(row.LOffRtg - row.LDefRtg), axis=1)
 
-#Assist Ratio : Percentage of team possessions that end in assists
-df['WAstR'] = df.apply(lambda row: 100 * row.WAst / (row.WFGA + 0.44*row.WFTA + row.WAst + row.WTO), axis=1)
-df['LAstR'] = df.apply(lambda row: 100 * row.LAst / (row.LFGA + 0.44*row.LFTA + row.LAst + row.LTO), axis=1)
-#Turnover Ratio: Number of turnovers of a team per 100 possessions used.
-#(TO * 100) / (FGA + (FTA * 0.44) + AST + TO
-df['WTOR'] = df.apply(lambda row: 100 * row.LAst / (row.LFGA + 0.44*row.LFTA + row.LAst + row.LTO), axis=1)
-df['LTOR'] = df.apply(lambda row: 100 * row.LAst / (row.LFGA + 0.44*row.LFTA + row.LAst + row.LTO), axis=1)
+    #Assist Ratio : Percentage of team possessions that end in assists
+    df['WAstR'] = df.apply(lambda row: 100 * row.WAst / (row.WFGA + 0.44*row.WFTA + row.WAst + row.WTO), axis=1)
+    df['LAstR'] = df.apply(lambda row: 100 * row.LAst / (row.LFGA + 0.44*row.LFTA + row.LAst + row.LTO), axis=1)
+    #Turnover Ratio: Number of turnovers of a team per 100 possessions used.
+    #(TO * 100) / (FGA + (FTA * 0.44) + AST + TO
+    df['WTOR'] = df.apply(lambda row: 100 * row.LAst / (row.LFGA + 0.44*row.LFTA + row.LAst + row.LTO), axis=1)
+    df['LTOR'] = df.apply(lambda row: 100 * row.LAst / (row.LFGA + 0.44*row.LFTA + row.LAst + row.LTO), axis=1)
 
-#The Shooting Percentage : Measure of Shooting Efficiency (FGA/FGA3, FTA)
-df['WTSP'] = df.apply(lambda row: 100 * row.WPts / (2 * (row.WFGA + 0.44 * row.WFTA)), axis=1)
-df['LTSP'] = df.apply(lambda row: 100 * row.LPts / (2 * (row.LFGA + 0.44 * row.LFTA)), axis=1)
-#eFG% : Effective Field Goal Percentage adjusting for the fact that 3pt shots are more valuable
-df['WeFGP'] = df.apply(lambda row:(row.WFGM + 0.5 * row.WFGM3) / row.WFGA, axis=1)
-df['LeFGP'] = df.apply(lambda row:(row.LFGM + 0.5 * row.LFGM3) / row.LFGA, axis=1)
-#FTA Rate : How good a team is at drawing fouls.
-df['WFTAR'] = df.apply(lambda row: row.WFTA / row.WFGA, axis=1)
-df['LFTAR'] = df.apply(lambda row: row.LFTA / row.LFGA, axis=1)
+    #The Shooting Percentage : Measure of Shooting Efficiency (FGA/FGA3, FTA)
+    df['WTSP'] = df.apply(lambda row: 100 * row.WPts / (2 * (row.WFGA + 0.44 * row.WFTA)), axis=1)
+    df['LTSP'] = df.apply(lambda row: 100 * row.LPts / (2 * (row.LFGA + 0.44 * row.LFTA)), axis=1)
+    #eFG% : Effective Field Goal Percentage adjusting for the fact that 3pt shots are more valuable
+    df['WeFGP'] = df.apply(lambda row:(row.WFGM + 0.5 * row.WFGM3) / row.WFGA, axis=1)
+    df['LeFGP'] = df.apply(lambda row:(row.LFGM + 0.5 * row.LFGM3) / row.LFGA, axis=1)
+    #FTA Rate : How good a team is at drawing fouls.
+    df['WFTAR'] = df.apply(lambda row: row.WFTA / row.WFGA, axis=1)
+    df['LFTAR'] = df.apply(lambda row: row.LFTA / row.LFGA, axis=1)
 
-#OREB% : Percentage of team offensive rebounds
-df['WORP'] = df.apply(lambda row: row.WOR / (row.WOR + row.LDR), axis=1)
-df['LORP'] = df.apply(lambda row: row.LOR / (row.LOR + row.WDR), axis=1)
-#DREB% : Percentage of team defensive rebounds
-df['WDRP'] = df.apply(lambda row: row.WDR / (row.WDR + row.LOR), axis=1)
-df['LDRP'] = df.apply(lambda row: row.LDR / (row.LDR + row.WOR), axis=1)
-#REB% : Percentage of team total rebounds
-df['WRP'] = df.apply(lambda row: (row.WDR + row.WOR) / (row.WDR + row.WOR + row.LDR + row.LOR), axis=1)
-df['LRP'] = df.apply(lambda row: (row.LDR + row.WOR) / (row.WDR + row.WOR + row.LDR + row.LOR), axis=1)
+    #OREB% : Percentage of team offensive rebounds
+    df['WORP'] = df.apply(lambda row: row.WOR / (row.WOR + row.LDR), axis=1)
+    df['LORP'] = df.apply(lambda row: row.LOR / (row.LOR + row.WDR), axis=1)
+    #DREB% : Percentage of team defensive rebounds
+    df['WDRP'] = df.apply(lambda row: row.WDR / (row.WDR + row.LOR), axis=1)
+    df['LDRP'] = df.apply(lambda row: row.LDR / (row.LDR + row.WOR), axis=1)
+    #REB% : Percentage of team total rebounds
+    df['WRP'] = df.apply(lambda row: (row.WDR + row.WOR) / (row.WDR + row.WOR + row.LDR + row.LOR), axis=1)
+    df['LRP'] = df.apply(lambda row: (row.LDR + row.WOR) / (row.WDR + row.WOR + row.LDR + row.LOR), axis=1)
 
-# After creating adv stats, now we need to split the winning and losing team stats for a more overall picture
+    # After creating adv stats, now we need to split the winning and losing team stats for a more overall picture
 
-df_TeamID = pd.concat((df['WTeamID'], df['LTeamID']), axis=1)
-df_adv2 = df.iloc[:, 34:].copy()
-df_adv = pd.concat((df_TeamID, df_adv2), axis=1)
-df_adv = pd.concat((df['Season'], df_adv), axis=1)
-# df_adv.head()
-names = df_adv.columns.values
-print(names)
-df_adv.shape
+    df_TeamID = pd.concat((df['WTeamID'], df['LTeamID']), axis=1)
+    df_adv2 = df.iloc[:, 34:].copy()
+    df_adv = pd.concat((df_TeamID, df_adv2), axis=1)
+    df_adv = pd.concat((df['Season'], df_adv), axis=1)
+    # df_adv.head()
+    names = df_adv.columns.values
+    print(names)
+    df_adv.shape
 
+    df_adv.to_csv('Raw_Adv_Stats.csv',index=False)
 
 Wnames = ['Season', 'WTeamID','WPts','Pos', 'WOffRtg' ,'WDefRtg',
           'WNetRtg', 'WAstR', 'WTOR', 'WTSP','WeFGP','WFTAR', 'WORP', 'WDRP','WRP']
@@ -195,7 +198,7 @@ df_losses = pd.merge(left=df_losses, right=df_advL, how='left', on=['Season', 'T
 # now, df_rank has columns season|week|System|teamID|rank
 # we need to make each system name a col in df_tour and group on season and team id 
 # in order to add a column with the raking for each team 
-# there is probably a fancy way, but it makes sens reading wise to just loop through and squish on
+# there is probably a fancy way, but it makes sense reading wise to just loop through and squish on
 ord_list = df_rank.SystemName.unique()
 
 for o in ord_list:
@@ -208,10 +211,13 @@ for o in ord_list:
     df_losses.rename(columns={'OrdinalRank':o}, inplace=True)
     df_wins = pd.merge(df_wins, df_temp, how='left',on=['Season', 'TeamID'])
     df_wins.rename(columns={'OrdinalRank':o}, inplace=True)
-    
-# how to fill in NaN data for rankings... 0, max, or mean?
-    
-    
+
+    # fill NaN with the mean of that column
+    # TODO determine if mean, min, or max is most appropriate. first guess is mean
+    # Do this in model
+    # df_wins[o].fillna(df_wins[o].mean(), inplace=True)
+    # df_losses[o].fillna(df_losses[o].mean(), inplace=True)
+
 # Prefix the cols with 'Opp' in dummy frames to allow for horizontal concat in order to expand data to be
 # | winr_stat    losr_stat |
 # | losr_stat    winr_stat |
@@ -263,4 +269,5 @@ df_finalData.to_csv('MarchMadnessFeatures_allSeasons.csv', index=False)
 
 
 df_Adv.to_csv('MarchMadnessAdvStats_allSeasons.csv', index=False)
+
 
